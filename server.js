@@ -12,8 +12,15 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
-        if (data.type === 'READY') { readySet.add(data.name); broadcastStatus(); }
-        if (data.type === 'RESET') { readySet.clear(); broadcastStatus(); }
+        if (data.type === 'READY') {
+          broadcast({ type: 'SKILL', name: data.name });
+          readySet.add(data.name);
+          broadcastStatus();
+        }
+        if (data.type === 'RESET') {
+          readySet.clear();
+          broadcastStatus();
+        }
       } catch(e) {}
       res.writeHead(200); res.end('ok');
     });
@@ -34,12 +41,13 @@ function broadcast(data) {
 }
 
 function broadcastStatus() {
-  const allNames = [...readySet];
+  const shamanNames = [...clients.values()].filter(c => c.role === 'shaman').map(c => c.name);
   broadcast({
     type: 'STATUS',
-    total: clients.size,
-    ready: allNames.length,
-    readyNames: allNames
+    total: shamanNames.length,
+    ready: [...readySet].length,
+    readyNames: [...readySet],
+    shamanNames
   });
 }
 
@@ -48,13 +56,4 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     try {
       const data = JSON.parse(raw);
-      if (data.type === 'JOIN') { clients.set(ws, { ws, name: data.name, role: data.role }); broadcastStatus(); }
-      if (data.type === 'READY') { const c = clients.get(ws); if (c) { readySet.add(c.name); broadcastStatus(); } }
-      if (data.type === 'RESET') { readySet.clear(); broadcastStatus(); }
-    } catch(e) {}
-  });
-  ws.on('close', () => { clients.delete(ws); broadcastStatus(); });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log('Sunucu port ' + PORT));
+      if (data.type === 'JOIN') { client
