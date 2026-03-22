@@ -5,7 +5,6 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
-
   if (req.method === 'POST' && req.url === '/notify') {
     let body = '';
     req.on('data', d => body += d);
@@ -47,7 +46,7 @@ function broadcastStatus() {
     total: shamanNames.length,
     ready: [...readySet].length,
     readyNames: [...readySet],
-    shamanNames
+    shamanNames: shamanNames
   });
 }
 
@@ -56,4 +55,21 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     try {
       const data = JSON.parse(raw);
-      if (data.type === 'JOIN') { client
+      if (data.type === 'JOIN') {
+        clients.set(ws, { ws, name: data.name, role: data.role });
+        broadcastStatus();
+      }
+      if (data.type === 'RESET') {
+        readySet.clear();
+        broadcastStatus();
+      }
+    } catch(e) {}
+  });
+  ws.on('close', () => {
+    clients.delete(ws);
+    broadcastStatus();
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log('Sunucu port ' + PORT));
